@@ -7,6 +7,8 @@ This module provides CUDA Graph acceleration for the speech tokenizer decoder,
 reducing kernel launch overhead during inference.
 """
 
+import os
+
 import torch
 from torch.cuda import CUDAGraph
 from vllm.logger import init_logger
@@ -96,10 +98,14 @@ class CUDAGraphDecoderWrapper:
         self.decoder.eval()
 
         if not self._explicit_sizes:
-            self.capture_sizes = self.compute_capture_sizes(
-                codec_chunk_frames=codec_chunk_frames,
-                codec_left_context_frames=codec_left_context_frames,
-            )
+            env_sizes = os.environ.get("QWEN3_DECODER_CUDA_GRAPH_SIZES")
+            if env_sizes:
+                self.capture_sizes = sorted(int(s) for s in env_sizes.split(",") if s.strip())
+            else:
+                self.capture_sizes = self.compute_capture_sizes(
+                    codec_chunk_frames=codec_chunk_frames,
+                    codec_left_context_frames=codec_left_context_frames,
+                )
 
         logger.info("Starting CUDA Graph warmup for %d sizes: %s", len(self.capture_sizes), self.capture_sizes)
 

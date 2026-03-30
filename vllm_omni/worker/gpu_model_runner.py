@@ -1289,7 +1289,14 @@ class OmniGPUModelRunner(GPUModelRunner):
         with set_forward_context(
             None, self.vllm_config, cudagraph_runtime_mode=_cudagraph_mode, batch_descriptor=batch_desc
         ):
-            req_embeds, code_predictor_codes = self.talker_mtp(req_input_ids, req_embeds, last_talker_hidden, text_step)
+            # Extract per-request generator for deterministic sampling.
+            # Only supported for single-request batches (typical for TTS).
+            _talker_generator = None
+            if decode_batch_size == 1:
+                _req = self.requests.get(decode_req_ids[0])
+                if _req is not None:
+                    _talker_generator = getattr(_req, "generator", None)
+            req_embeds, code_predictor_codes = self.talker_mtp(req_input_ids, req_embeds, last_talker_hidden, text_step, generator=_talker_generator)
         # code_predictor_codes stays on GPU here; _update_intermediate_buffer
         # keeps it device-resident when the key is in gpu_resident_buffer_keys.
         # D2H is deferred to sample_tokens where hidden_states.to("cpu") already

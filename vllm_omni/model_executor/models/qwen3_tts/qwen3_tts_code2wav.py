@@ -111,7 +111,9 @@ class Qwen3TTSCode2Wav(nn.Module):
         if hasattr(decoder, "precompute_snake_caches"):
             decoder.precompute_snake_caches()
 
-        if hasattr(decoder, "enable_cudagraph"):
+        if hasattr(decoder, "enable_cudagraph") and os.environ.get(
+            "QWEN3_DECODER_CUDA_GRAPH_ENABLED", "0"
+        ) not in ("0", "false", "False"):
             device = self._module_device(decoder)
             if device.type == "cuda":
                 try:

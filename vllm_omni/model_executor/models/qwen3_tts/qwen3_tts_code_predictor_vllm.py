@@ -487,6 +487,7 @@ class Qwen3TTSTalkerCodePredictorForConditionalGenerationVLLM(nn.Module):
         temperature: float = 0.9,
         top_k: int = 50,
         top_p: float = 1.0,
+        generator: torch.Generator | None = None,
     ) -> torch.Tensor:
         """Predict residual codebooks 1..Q-1 autoregressively via re-prefill.
 
@@ -548,7 +549,7 @@ class Qwen3TTSTalkerCodePredictorForConditionalGenerationVLLM(nn.Module):
                     topk_vals, _ = scaled.topk(top_k, dim=-1)
                     scaled = scaled.masked_fill(scaled < topk_vals[:, -1:], float("-inf"))
                 probs = F.softmax(scaled, dim=-1)
-                next_ids = torch.multinomial(probs, num_samples=1)
+                next_ids = torch.multinomial(probs, num_samples=1, generator=generator)
             else:
                 next_ids = logits.argmax(dim=-1, keepdim=True)
 
