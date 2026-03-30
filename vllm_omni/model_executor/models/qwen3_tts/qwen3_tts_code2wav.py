@@ -154,6 +154,10 @@ class Qwen3TTSCode2Wav(nn.Module):
         if not hasattr(self.decoder, "enable_cudagraph") or device.type != "cuda":
             return
 
+        if os.environ.get("QWEN3_DECODER_CUDA_GRAPH_ENABLED", "0") in ("0", "false", "False"):
+            logger.info("Qwen3-TTS Code2Wav CUDA Graph disabled (QWEN3_DECODER_CUDA_GRAPH_ENABLED not set)")
+            return
+
         model_cfg = getattr(self.vllm_config, "model_config", None)
         if getattr(model_cfg, "enforce_eager", False):
             logger.info("Qwen3-TTS Code2Wav CUDA Graph disabled because enforce_eager is set")

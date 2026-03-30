@@ -303,12 +303,16 @@ class CUDAGraphDecoderWrapper:
         self.decoder.eval()
 
         if not self._explicit_sizes:
-            self.capture_sizes = self.compute_capture_sizes(
-                codec_chunk_frames=codec_chunk_frames,
-                codec_left_context_frames=codec_left_context_frames,
-                decode_chunk_size=decode_chunk_size,
-                decode_left_context=decode_left_context,
-            )
+            env_sizes = os.environ.get("QWEN3_DECODER_CUDA_GRAPH_SIZES")
+            if env_sizes:
+                self.capture_sizes = sorted(int(s) for s in env_sizes.split(",") if s.strip())
+            else:
+                self.capture_sizes = self.compute_capture_sizes(
+                    codec_chunk_frames=codec_chunk_frames,
+                    codec_left_context_frames=codec_left_context_frames,
+                    decode_chunk_size=decode_chunk_size,
+                    decode_left_context=decode_left_context,
+                )
 
         self.capture_batch_sizes = [bs for bs in self.capture_batch_sizes if bs > 0]
         if not self.capture_batch_sizes:
