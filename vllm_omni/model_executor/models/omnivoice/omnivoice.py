@@ -424,12 +424,23 @@ class OmniVoiceModel(
         batch_attention_mask[0, :, :cond_len, :cond_len] = True
         batch_attention_mask[1, :, :uncond_len, :uncond_len] = True
 
+        # Extract seed from sampling_extra_args (set via SamplingParams.extra_args).
+        seed = None
+        extra_args_list = kwargs.get("sampling_extra_args", None)
+        if extra_args_list:
+            first = extra_args_list[0] if isinstance(extra_args_list, (list, tuple)) else extra_args_list
+            if isinstance(first, dict):
+                seed_val = first.get("seed")
+                if seed_val is not None:
+                    seed = int(seed_val)
+
         # Run iterative generation
         tokens = self.generator(
             input_ids=batch_input_ids,
             audio_mask=batch_audio_mask,
             attention_mask=batch_attention_mask,
             target_lens=[target_len],
+            seed=seed,
             num_step=self.config.num_step,
             guidance_scale=self.config.guidance_scale,
             t_shift=self.config.t_shift,
