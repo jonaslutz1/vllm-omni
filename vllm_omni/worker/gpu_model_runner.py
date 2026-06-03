@@ -1294,10 +1294,16 @@ class OmniGPUModelRunner(GPUModelRunner):
         req_embeds = self.talker_mtp_inputs_embeds.gpu[:num_tokens_padded]
         last_talker_hidden = self.last_talker_hidden.gpu[:num_tokens_padded]
         text_step = self.text_step.gpu[:num_tokens_padded]
+        # For non-CUDAGraph paths (TTS AR loop) pass the per-request generator so
+        # that torch.multinomial is seeded.  CUDAGraph-wrapped Omni talker_mtp
+        # handles seeding differently and doesn't accept a generator kwarg.
+        talker_kwargs: dict = {}
+        if not isinstance(self.talker_mtp, CUDAGraphWrapper) and decode_req_ids:
+            talker_kwargs["generator"] = getattr(self.requests[decode_req_ids[0]], "generator", None)
         with set_forward_context(
             None, self.vllm_config, cudagraph_runtime_mode=_cudagraph_mode, batch_descriptor=batch_desc
         ):
-            req_embeds, code_predictor_codes = self.talker_mtp(req_input_ids, req_embeds, last_talker_hidden, text_step)
+            req_embeds, code_predictor_codes = self.talker_mtp(req_input_ids, req_embeds, last_talker_hidden, text_step, **talker_kwargs)
         # update the inputs_embeds and code_predictor_codes
         code_predictor_codes_cpu = code_predictor_codes.detach().to("cpu").contiguous()
         out_key = getattr(self.model, "talker_mtp_output_key", "code_predictor_codes")
