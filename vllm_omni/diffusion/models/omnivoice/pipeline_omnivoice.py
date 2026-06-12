@@ -279,15 +279,26 @@ class OmniVoicePipeline(nn.Module, SupportAudioOutput):
         mask_id = self.config.audio_mask_id
 
         # Estimate target duration
-        target_len = self.duration_estimator.estimate_duration(text, "Nice to meet you.", 25)
+        if text.startswith("[") and text.endswith("]"):
+            target_len = self.duration_estimator.estimate_duration(text, "[ q i1 ch _ b i1 n _ t iih1 n ah0 _ .]", 25)
+        else: 
+            target_len = self.duration_estimator.estimate_duration(text, "Nice to meet you.", 25)
         target_len = max(1, int(target_len))
 
         # Build text prompt with control tokens
         style_text = f"<|denoise|><|lang_start|>{lang}<|lang_end|><|instruct_start|>{instruct}<|instruct_end|>"
-        full_text = _combine_text(ref_text=ref_text, text=text)
-        wrapped_text = f"<|text_start|>{full_text}<|text_end|>"
+
+        # phoneme input is marked by [], assumes that model is finetuned and therefore generation without a ref audio
+        if text.startswith("[") and text.endswith("]"):
+            text = text.strip().split()
+            text_tokens = [self.tokenizer.token_to_id(t) for t in ["<|text_start|>"] + text + ["<|text_end|>"]]
+            #text_tokens = torch.tensor([text_tokens], dtype=torch.long).repeat(self.config.num_audio_codebook, 1).unsqueeze(0).to(self.device)
+        else:
+            full_text = _combine_text(ref_text=ref_text, text=text)
+            wrapped_text = f"<|text_start|>{full_text}<|text_end|>"
+            text_tokens = _tokenize_with_nonverbal_tags(wrapped_text, self.tokenizer)
+        
         style_tokens = self.tokenizer.encode(style_text).ids
-        text_tokens = _tokenize_with_nonverbal_tags(wrapped_text, self.tokenizer)
         encoding_ids = style_tokens + text_tokens
         text_tokens = torch.tensor(encoding_ids, dtype=torch.long, device=device)
         text_len = text_tokens.shape[0]
