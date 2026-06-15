@@ -50,9 +50,11 @@ def warn_if_misaligned_vllm_version():
 
 __all__ = ["__version__", "__version_tuple__"]
 
-# Run version check automatically when this module is imported
-try:
-    warn_if_misaligned_vllm_version()
-except ModuleNotFoundError:
-    # vLLM not installed (e.g., documentation builds)
-    pass
+# Version check disabled: this is an Aristech fork pinned by commit, so the
+# setuptools_scm-derived version (0.1.dev*) never matches vLLM's major/minor
+# and the warning is a permanent false positive.
+# try:
+#     warn_if_misaligned_vllm_version()
+# except ModuleNotFoundError:
+#     # vLLM not installed (e.g., documentation builds)
+#     pass
