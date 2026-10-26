@@ -280,14 +280,24 @@ class OmniVoicePipeline(nn.Module, SupportAudioOutput):
             if not text:
                 return DiffusionOutput(error="Empty text prompt")
 
-        target_len = self.duration_estimator.estimate_duration(text, "Nice to meet you.", 25)
+        # Phoneme input is marked by []. It assumes a model finetuned on phoneme
+        # tokens, used without reference audio.
+        is_phoneme_input = text.startswith("[") and text.endswith("]")
+        if is_phoneme_input:
+            target_len = self.duration_estimator.estimate_duration(text, "[ q i1 ch _ b i1 n _ t iih1 n ah0 _ .]", 25)
+        else:
+            target_len = self.duration_estimator.estimate_duration(text, "Nice to meet you.", 25)
         target_len = max(1, int(target_len))
 
         style_text = f"<|denoise|><|lang_start|>{lang}<|lang_end|><|instruct_start|>{instruct}<|instruct_end|>"
-        full_text = _combine_text(ref_text=ref_text, text=text)
-        wrapped_text = f"<|text_start|>{full_text}<|text_end|>"
         style_tokens = self.tokenizer.encode(style_text).ids
-        text_tokens = _tokenize_with_nonverbal_tags(wrapped_text, self.tokenizer)
+        if is_phoneme_input:
+            phonemes = text.strip().split()
+            text_tokens = [self.tokenizer.token_to_id(t) for t in ["<|text_start|>", *phonemes, "<|text_end|>"]]
+        else:
+            full_text = _combine_text(ref_text=ref_text, text=text)
+            wrapped_text = f"<|text_start|>{full_text}<|text_end|>"
+            text_tokens = _tokenize_with_nonverbal_tags(wrapped_text, self.tokenizer)
         encoding_ids = style_tokens + text_tokens
         text_tokens_tensor = torch.tensor(encoding_ids, dtype=torch.long, device=self.device)
         text_len = text_tokens_tensor.shape[0]
